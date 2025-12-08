@@ -21,18 +21,20 @@ import re
 import asyncio
 from datetime import datetime
 from typing import Optional, Tuple
+from dotenv import load_dotenv
 
+load_dotenv() 
 # ----------------------------
 # CONFIG
 # ----------------------------
-api_id = 123456                 # <-- your api_id
-api_hash = "your_api_hash"      # <-- your api_hash
+api_id = int(os.getenv("app_id"))               # <-- your api_id
+api_hash = os.getenv("app_hash")      # <-- your api_hash
 
 # You can set this to:
 #  - the numeric chat_id (recommended after you print it once),
 #  - or a username like "my_test_group",
 #  - or leave None to listen to all chats while testing.
-TARGET_CHAT = None  # e.g. -1001234567890
+TARGET_CHAT =  -5024845521 # e.g. -1001234567890
 
 TRIGGER_TEXT = "sending photos"
 
@@ -56,19 +58,28 @@ downloaded_files = []  # list[str]
 # ----------------------------
 INVALID_FS_CHARS = r'<>:"/\|?*\n\r\t'
 
+import re
+import unicodedata
 
 def sanitize_name(name: str, max_len: int = 80) -> str:
-    """Make a string safe for folder names across OSes."""
     name = name.strip()
-    if not name:
-        return "Unknown"
-    # Replace invalid filesystem characters with underscore
-    name = re.sub(f"[{re.escape(INVALID_FS_CHARS)}]", "_", name)
-    # Collapse repeated spaces/underscores
-    name = re.sub(r"\s+", " ", name)
-    name = re.sub(r"_+", "_", name)
-    name = name.strip(" ._")
-    return name[:max_len] if len(name) > max_len else name
+
+    # 1) Normalize Unicode (keeps Hindi, accented chars, etc.)
+    name = unicodedata.normalize("NFKC", name)
+
+    # 2) Replace ONLY characters the OS absolutely forbids
+    # Windows forbids:  \ / : * ? " < > |
+    name = re.sub(r'[\\/:*?"<>|]', '_', name)
+
+    # 3) Collapse repeated underscores/spaces
+    name = re.sub(r'\s+', ' ', name)   # multiple spaces → single space
+    name = re.sub(r'_+', '_', name)    # multiple underscores → one
+
+    # 4) Trim leftover garbage
+    name = name.strip(' ._')
+
+    # 5) Truncate if too long
+    return name[:max_len]
 
 
 def parse_city_site(text: str) -> Tuple[str, str]:
